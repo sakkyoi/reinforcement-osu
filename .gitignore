@@ -1,0 +1,11 @@
+# ignore the folder "osu!"
+osu!/
+
+# ignore all __pycache__ folders
+__pycache__/
+
+# ignore .venv
+.venv/
+
+# ignore .zip files
+*.zip

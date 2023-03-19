@@ -1,0 +1,8 @@
+main menu: 0
+edit: 1
+song playing: 2
+song selection: 5
+result: 7
+multi: 11
+multi room: 12
+multi room song selection: 13
