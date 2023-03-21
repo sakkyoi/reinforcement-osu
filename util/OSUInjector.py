@@ -138,7 +138,7 @@ class OSUInjector:
         width, height = self._get_hwnd_size()
         mon = {'top': rect[1] + 25 + 25, 'left': rect[0] + 25, 'width': width - 50, 'height': height - 25 - 50}
         img = img = np.asarray(self.mss.grab(mon))
-        img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
+        img = cv2.resize(img, (0, 0), fx=0.1, fy=0.1)
         # convert to grayscale
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # apply Adaptive Gaussian Thresholding
