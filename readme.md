@@ -18,3 +18,5 @@ some notes (Mandarin):
 
 skin: https://osu.ppy.sh/community/forums/topics/656939?n=1
 細節設定、打擊閃光關閉(https://forum.gamer.com.tw/C.php?bsn=18601&snA=8060)
+
+# 我的enviroment好像寫得不太對，

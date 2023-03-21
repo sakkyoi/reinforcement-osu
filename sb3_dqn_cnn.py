@@ -18,22 +18,15 @@ listener.start()
 
 env = ENV(no_fail=True)
 
-model = DQN('CnnPolicy', env, verbose=1, buffer_size=100, learning_rate=0.001, gamma=0.999, batch_size=32, policy_kwargs=dict(normalize_images=False), device='cuda') # https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html
+model = DQN('CnnPolicy', env, verbose=2, buffer_size=100, learning_rate=0.0001, gamma=0.9999, batch_size=32, policy_kwargs=dict(normalize_images=False), device='cuda') # https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html
 
 while True:
     # continue training
-    model = DQN.load("dqn_osu", env=env)
-
-    # check if the model is already trained
-    # 
-    # try:
-    # 
-    #     model = DQN.load("dqn_osu")
-    # 
-    # except:
-    # 
-    #     pass
-
+    try:
+        model = DQN.load("dqn_osu", env=env)
+    except:
+        pass
+    
     model.learn(total_timesteps=10_000)
     model.save("dqn_osu")
     print('model saved')
