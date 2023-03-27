@@ -46,10 +46,10 @@ class OSUInjector:
     def get_play_container(self) -> dict:
         """Returns a dict with playing status. if not playing, returns None."""
         try:
-            address_to_play_container = self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x60 ], read='int')
+            address_to_play_container = self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x68 ], read='int')
             return {
-                'score': self.offset(address_to_play_container, offsets=[ 0x38, 0x78 ], read='int'),
-                'scorev2': self.offset(address_to_play_container, offsets=[ 0x4c, 0xc, 0x68, 0x4, 0xf8 ], read='int'),
+                'score': self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x100 ], read='int'),
+                # 'scorev2': self.offset(address_to_play_container, offsets=[ 0x4c, 0xc, 0x68, 0x4, 0xf8 ], read='int'),
                 'accuracy': self.offset(address_to_play_container, offsets=[ 0x48, 0x14 ], read='double'),
                 'combo': self.offset(address_to_play_container, offsets=[ 0x38, 0x94 ], read='ushort'),
                 'combo_max': self.offset(address_to_play_container, offsets=[ 0x38, 0x68 ], read='ushort'),
@@ -150,6 +150,18 @@ class OSUInjector:
         # img = cv2.GaussianBlur(img, (5, 5), 0)
         # normalize to 0-1
         img = cv2.normalize(img, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+
+        return img
+    
+    def _screen_shot_original(self):
+        """Takes a screenshot of the osu! client."""
+        # get the position of the osu! window
+        hwnd = self._get_hwnd_by_pid()
+        rect = win32gui.GetWindowRect(hwnd)
+        # take the screenshot
+        width, height = self._get_hwnd_size()
+        mon = {'top': rect[1] + 25 + 25, 'left': rect[0] + 25, 'width': width - 50, 'height': height - 25 - 50}
+        img = img = np.asarray(self.mss.grab(mon))
 
         return img
         
@@ -254,10 +266,11 @@ if __name__ == "__main__":
     pyautogui.FAILSAFE = False
     injector = OSUInjector(osu_path="./osu!/osu!.exe")
     while True:
-        # pc = injector.get_play_container()
-        # status = injector.get_current_beatmap()
-        # sys.stdout.write(f'\rStatus: {status}')
-        # sys.stdout.flush()
+        pc = injector.get_play_container()
+        s = injector.get_osu_status()
+        status = injector.get_current_beatmap()
+        sys.stdout.write(f'\rStatus: {status}, {s}, {pc}')
+        sys.stdout.flush()
 
         
         # print(injector._screen_shot())
