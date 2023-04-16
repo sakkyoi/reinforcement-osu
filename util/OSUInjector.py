@@ -19,8 +19,9 @@ import threading
 import pyclick
 
 class OSUInjector:
-    def __init__(self, osu_path: str, no_fail: bool = False):
+    def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False):
         self.no_fail = no_fail
+        self.auto_pilot = auto_pilot
 
         self.human_clicker = pyclick.HumanClicker()
         self.mss = mss()
@@ -211,6 +212,10 @@ class OSUInjector:
         sleep(1)
         if self.no_fail:
             self._toggle_no_fail()
+
+        if self.auto_pilot:
+            self._toggle_auto_pilot()
+
         print('waiting for agent press f2 to random map')
         sleep(1)
 
@@ -222,6 +227,19 @@ class OSUInjector:
         sleep(2)
         pyautogui.keyDown('w')
         pyautogui.keyUp('w')
+        sleep(2)
+        pyautogui.keyDown('2')
+        pyautogui.keyUp('2')
+        sleep(2)
+
+    def _toggle_auto_pilot(self):
+        self._focus_on_osu()
+        sleep(1)
+        pyautogui.keyDown('f1')
+        pyautogui.keyUp('f1')
+        sleep(2)
+        pyautogui.keyDown('x')
+        pyautogui.keyUp('x')
         sleep(2)
         pyautogui.keyDown('2')
         pyautogui.keyUp('2')
