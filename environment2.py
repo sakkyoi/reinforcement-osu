@@ -170,7 +170,7 @@ class ENV(gym.Env):
                 with open('play_training.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
             elif self.traing_mode == 1:
-                with open('play_evaluate.txt', 'a') as f:
+                with open('play_evaluation.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
             else:
                 raise ValueError("traing_mode must be either 0 or 1")

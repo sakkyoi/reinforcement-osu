@@ -9,3 +9,8 @@ __pycache__/
 
 # ignore .zip files
 *.zip
+
+# ignore log files
+play_training.txt
+play_evaluation.txt
+evaluations.txt
