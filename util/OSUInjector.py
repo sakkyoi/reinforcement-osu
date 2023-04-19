@@ -38,22 +38,19 @@ class OSUInjector:
         self.pm = pm
         self.base_sign = "F8 01 74 04 83 65"
         self.playcontainer_sign = "C7 86 48 01 00 00 01 00 00 00 A1" # Avaliable only when playing(OsuStatus=2 single mode)
-        ### The address_base and address_play_container are not static, so we need to find them every time we want to read memory. so they are moved to the functions. ###
-        # self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
-        # self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+        self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+        self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
 
     def get_osu_status(self) -> int:
         """Returns the current status of the osu! client."""
-        address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
-        return self.offset(address_base, offsets=[ -0x3c, 0x0 ], read='int') # the 0x0 offset is because it has offset of -0x3c and pointer offset of 0x0
+        return self.offset(self.address_base, offsets=[ -0x3c, 0x0 ], read='int') # the 0x0 offset is because it has offset of -0x3c and pointer offset of 0x0
     
     def get_play_container(self) -> dict:
         """Returns a dict with playing status. if not playing, returns None."""
         try:
-            address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
-            address_to_play_container = self.offset(address_play_container, offsets=[ 0xb, 0x4, 0x68 ], read='int')
+            address_to_play_container = self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x68 ], read='int')
             return {
-                'score': self.offset(address_play_container, offsets=[ 0xb, 0x4, 0x100 ], read='int'),
+                'score': self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x100 ], read='int'),
                 # 'scorev2': self.offset(address_to_play_container, offsets=[ 0x4c, 0xc, 0x68, 0x4, 0xf8 ], read='int'),
                 'accuracy': self.offset(address_to_play_container, offsets=[ 0x48, 0x14 ], read='double'),
                 'combo': self.offset(address_to_play_container, offsets=[ 0x38, 0x94 ], read='ushort'),
@@ -74,8 +71,7 @@ class OSUInjector:
     def get_current_beatmap(self) -> dict:
         """Returns a dict with current beatmap info."""
         try:
-            address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
-            address_to_current_beatmap = self.offset(address_base, offsets=[ -0xc, 0x0 ], read='int')
+            address_to_current_beatmap = self.offset(self.address_base, offsets=[ -0xc, 0x0 ], read='int')
             return {
                 'id': self.offset(address_to_current_beatmap, offsets=[ 0xcc ], read='int'), # id of the single beatmap
                 'set_id': self.offset(address_to_current_beatmap, offsets=[ 0xd0 ], read='int'), # id of the beatmapset
@@ -96,6 +92,11 @@ class OSUInjector:
     def pattern_converter(self, patt: str) -> bytes:
         """Converts a pattern string like 'F8 01 74 04 83 65' to a bytes object like b'\xf8\x01\x74\x04\x83\x65' that can be used by pymem.pattern.pattern_scan_all"""
         return bytes(r'\x' + patt.replace(' ', r'\x').replace(r'\x??', '.').lower(), 'utf-8')
+    
+    def recaculate_offsets(self):
+        """Recalculates the offsets of the osu! client."""
+        self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+        self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
     
     def read_int(self, address) -> int:
         return self.pm.read_int(address)
