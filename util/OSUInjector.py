@@ -19,9 +19,10 @@ import threading
 import pyclick
 
 class OSUInjector:
-    def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False):
+    def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False, relax: bool = False):
         self.no_fail = no_fail
         self.auto_pilot = auto_pilot
+        self.relax = relax
 
         self.human_clicker = pyclick.HumanClicker()
         self.mss = mss()
@@ -37,23 +38,27 @@ class OSUInjector:
         self.pm = pm
         self.base_sign = "F8 01 74 04 83 65"
         self.playcontainer_sign = "C7 86 48 01 00 00 01 00 00 00 A1" # Avaliable only when playing(OsuStatus=2 single mode)
-        self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
-        self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+        ### The address_base and address_play_container are not static, so we need to find them every time we want to read memory. so they are moved to the functions. ###
+        # self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+        # self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
 
     def get_osu_status(self) -> int:
         """Returns the current status of the osu! client."""
-        return self.offset(self.address_base, offsets=[ -0x3c, 0x0 ], read='int') # the 0x0 offset is because it has offset of -0x3c and pointer offset of 0x0
+        address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+        return self.offset(address_base, offsets=[ -0x3c, 0x0 ], read='int') # the 0x0 offset is because it has offset of -0x3c and pointer offset of 0x0
     
     def get_play_container(self) -> dict:
         """Returns a dict with playing status. if not playing, returns None."""
         try:
-            address_to_play_container = self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x68 ], read='int')
+            address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+            address_to_play_container = self.offset(address_play_container, offsets=[ 0xb, 0x4, 0x68 ], read='int')
             return {
-                'score': self.offset(self.address_play_container, offsets=[ 0xb, 0x4, 0x100 ], read='int'),
+                'score': self.offset(address_play_container, offsets=[ 0xb, 0x4, 0x100 ], read='int'),
                 # 'scorev2': self.offset(address_to_play_container, offsets=[ 0x4c, 0xc, 0x68, 0x4, 0xf8 ], read='int'),
                 'accuracy': self.offset(address_to_play_container, offsets=[ 0x48, 0x14 ], read='double'),
                 'combo': self.offset(address_to_play_container, offsets=[ 0x38, 0x94 ], read='ushort'),
                 'combo_max': self.offset(address_to_play_container, offsets=[ 0x38, 0x68 ], read='ushort'),
+                # 'hitErrors': self.offset(address_to_play_container, offsets=[ 0x38, 0x38 ], read='int_list'), # this is int[]
                 'hit300': self.offset(address_to_play_container, offsets=[ 0x38, 0x8a ], read='ushort'),
                 'hit100': self.offset(address_to_play_container, offsets=[ 0x38, 0x88 ], read='ushort'),
                 'hit50': self.offset(address_to_play_container, offsets=[ 0x38, 0x8c ], read='ushort'),
@@ -69,7 +74,8 @@ class OSUInjector:
     def get_current_beatmap(self) -> dict:
         """Returns a dict with current beatmap info."""
         try:
-            address_to_current_beatmap = self.offset(self.address_base, offsets=[ -0xc, 0x0 ], read='int')
+            address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+            address_to_current_beatmap = self.offset(address_base, offsets=[ -0xc, 0x0 ], read='int')
             return {
                 'id': self.offset(address_to_current_beatmap, offsets=[ 0xcc ], read='int'), # id of the single beatmap
                 'set_id': self.offset(address_to_current_beatmap, offsets=[ 0xd0 ], read='int'), # id of the beatmapset
@@ -125,6 +131,8 @@ class OSUInjector:
                 return self.read_short(address)
             elif read == 'float':
                 return self.read_float(address)
+            # elif read == 'int_list':
+            #     return self.read_int_list(address)
             else:
                 raise ValueError(f'Invalid read type: {read}')
         else:
@@ -216,6 +224,9 @@ class OSUInjector:
         if self.auto_pilot:
             self._toggle_auto_pilot()
 
+        if self.relax:
+            self._toggle_relax()
+
         print('waiting for agent press f2 to random map')
         sleep(1)
 
@@ -240,6 +251,19 @@ class OSUInjector:
         sleep(2)
         pyautogui.keyDown('x')
         pyautogui.keyUp('x')
+        sleep(2)
+        pyautogui.keyDown('2')
+        pyautogui.keyUp('2')
+        sleep(2)
+
+    def _toggle_relax(self):
+        self._focus_on_osu()
+        sleep(1)
+        pyautogui.keyDown('f1')
+        pyautogui.keyUp('f1')
+        sleep(2)
+        pyautogui.keyDown('z')
+        pyautogui.keyUp('z')
         sleep(2)
         pyautogui.keyDown('2')
         pyautogui.keyUp('2')
