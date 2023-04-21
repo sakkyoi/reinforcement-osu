@@ -18,8 +18,13 @@ import numpy as np
 import threading
 import pyclick
 
+from ossapi.enums import GameMode
+from OSUAPI import OSUAPI
+
 class OSUInjector:
-    def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False, relax: bool = False):
+    def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False, relax: bool = False, game_mode: GameMode = GameMode.OSU):
+        self.game_mode = game_mode
+
         self.no_fail = no_fail
         self.auto_pilot = auto_pilot
         self.relax = relax
@@ -33,13 +38,14 @@ class OSUInjector:
         self.pid = proccess.pid
         print('osu! started with PID: ' + str(self.pid))
 
-        self._init_map_selection()
         pm = Pymem("osu!.exe")
         self.pm = pm
         self.base_sign = "F8 01 74 04 83 65"
         self.playcontainer_sign = "C7 86 48 01 00 00 01 00 00 00 A1" # Avaliable only when playing(OsuStatus=2 single mode)
         self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
         self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+
+        self._init_map_selection()
 
     def get_osu_status(self) -> int:
         """Returns the current status of the osu! client."""
@@ -203,21 +209,50 @@ class OSUInjector:
         self._focus_on_osu()
         # top, left = self._get_hwnd_pos()
         # pyautogui.moveTo(left, top, duration=0.5)
-        pyautogui.keyDown('p')
-        pyautogui.keyUp('p')
-        pyautogui.keyDown('p')
-        pyautogui.keyUp('p')
-        pyautogui.keyDown('p')
-        pyautogui.keyUp('p')
+        while True:
+            pyautogui.keyDown('p')
+            pyautogui.keyUp('p')
+            sleep(1)
+            if self.get_osu_status() == 5:
+                break
+
+        # pyautogui.keyDown('p')
+        # pyautogui.keyUp('p')
+        # pyautogui.keyDown('p')
+        # pyautogui.keyUp('p')
+        # pyautogui.keyDown('p')
+        # pyautogui.keyUp('p')
+
         sleep(2)
-        pyautogui.keyDown('down')
-        pyautogui.keyUp('down')
-        sleep(1)
-        pyautogui.keyDown('up')
-        pyautogui.keyUp('up')
-        sleep(1)
-        pyautogui.keyDown('enter')
-        pyautogui.keyUp('enter')
+
+        while True:
+            pyautogui.keyDown('up')
+            pyautogui.keyUp('up')
+            sleep(1)
+            pyautogui.keyDown('enter')
+            pyautogui.keyUp('enter')
+            sleep(1)
+            pyautogui.keyDown('down')
+            pyautogui.keyUp('down')
+            sleep(1)
+            pyautogui.keyDown('enter')
+            pyautogui.keyUp('enter')
+            sleep(1)
+            if OSUAPI().get_beatmap_mode(self.get_current_beatmap()['id']) == self.game_mode:
+                break
+            else:
+                pyautogui.keyDown('up')
+                pyautogui.keyUp('up')
+                sleep(1)
+
+        # pyautogui.keyDown('down')
+        # pyautogui.keyUp('down')
+        # sleep(1)
+        # pyautogui.keyDown('up')
+        # pyautogui.keyUp('up')
+        # sleep(1)
+        # pyautogui.keyDown('enter')
+        # pyautogui.keyUp('enter')
         sleep(1)
         if self.no_fail:
             self._toggle_no_fail()
@@ -307,7 +342,7 @@ class OSUInjector:
 
 if __name__ == "__main__":
     pyautogui.FAILSAFE = False
-    injector = OSUInjector(osu_path="./osu!/osu!.exe")
+    injector = OSUInjector(osu_path="./osu!/osu!.exe", game_mode=GameMode.TAIKO)
     while True:
         pc = injector.get_play_container()
         s = injector.get_osu_status()
@@ -322,4 +357,5 @@ if __name__ == "__main__":
 
         # if cv2.waitKey(25) & 0xFF == ord('b'):
         #     cv2.destroyAllWindows()
+
         #     break
