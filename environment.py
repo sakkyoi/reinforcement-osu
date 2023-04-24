@@ -1,7 +1,3 @@
-"""
-This is to train for clicking task
-"""
-
 import numpy as np
 import gym
 from gym import spaces
@@ -17,11 +13,14 @@ from datetime import datetime, timedelta
 import threading
 
 class ENV(gym.Env):
-    def __init__(self, osu_path="./osu!/osu!.exe", no_fail: bool = False, auto_pilot: bool = False, action_space_type = "discrete"):
+    def __init__(self, osu_path="./osu!/osu!.exe", no_fail: bool = False, auto_pilot: bool = False, relax: bool = False, action_space_type = "discrete", frame_limit: int = 10):
+        super(ENV, self).__init__()
+        self.frame_limit = frame_limit
         self.action_space_type = action_space_type
         self.no_fail = no_fail
         self.auto_pilot = auto_pilot
-        self.injector = OSUInjector(osu_path=osu_path, no_fail=self.no_fail, auto_pilot=self.auto_pilot)
+        self.relax = relax
+        self.injector = OSUInjector(osu_path=osu_path, no_fail=self.no_fail, auto_pilot=self.auto_pilot, relax=self.relax)
         self.discrete_width = self.injector._screen_shot().shape[0]
         self.discrete_height = self.injector._screen_shot().shape[1]
         self.hwnd_width, self.hwnd_height = self.injector._get_hwnd_size()
@@ -29,14 +28,20 @@ class ENV(gym.Env):
 
         self.observation_space = spaces.Box(low=0, high=1, shape=(4, self.discrete_width, self.discrete_height), dtype=np.float32)
 
-        if self.action_space_type == "discrete":
-            self.action_space = spaces.Discrete(4)
-        elif self.action_space_type == 'multi_discrete':
-            self.action_space = spaces.MultiDiscrete([2, 2])
-        # elif self.action_space_type == "box":
-        #     self.action_space = spaces.Box(low=0, high=1, shape=(4,), dtype=np.float32)
-        else:
-            raise ValueError("action_space must be either 'discrete' or 'box'")
+        if self.auto_pilot:
+            if self.action_space_type == "discrete":
+                self.action_space = spaces.Discrete(4)
+            elif self.action_space_type == 'multi_discrete':
+                self.action_space = spaces.MultiDiscrete([2, 2])
+            elif self.action_space_type == 'multi_binary':
+                self.action_space = spaces.MultiBinary(2)
+            else:
+                raise ValueError("action_space must be either 'discrete' or 'multi_discrete'")
+        elif self.relax:
+            if self.action_space_type == 'multi_discrete':
+                self.action_space = spaces.MultiDiscrete([self.discrete_width + 1, self.discrete_height + 1])
+            else:
+                raise ValueError("action_space must be 'multi_discrete'")
         
         
         self.reward_range = (-5, 5)
@@ -55,6 +60,8 @@ class ENV(gym.Env):
         for i in range(4):
             self.obs[i] = self.injector._screen_shot()
 
+        print(self.obs)
+
         self.last_action = None
         self.time_last_action = datetime.now()
 
@@ -68,17 +75,21 @@ class ENV(gym.Env):
         If the game is in map selection screen, press F2 to randomize the map.
         If the game is in the result screen, press escape to go back to map selection screen and press F2 to randomize the map.
         If the game is failed, press ` to restart the map.
+        (This is moved to step function)
         """
         print('\nreset')
+
+        self.injector.recaculate_offsets() # recaculate offsets
+
         self.started = False
 
         observation = self.obs
 
-        return observation[-1]
+        return observation
 
     def step(self, action):
         datetime.now()
-        if self.time_last_action + timedelta(seconds=0.1) > datetime.now():
+        if self.time_last_action + timedelta(seconds=1/self.frame_limit) > datetime.now():
             while self.time_last_action + timedelta(seconds=0.1) > datetime.now():
                 pass
         self.time_last_action = datetime.now()
@@ -101,7 +112,7 @@ class ENV(gym.Env):
         
         self._perform_action(action)
         # observation = self.injector._screen_shot()
-        self.obs = np.ndarray((4, self.discrete_width, self.discrete_height), dtype=np.float32)
+        # self.obs = np.ndarray((4, self.discrete_width, self.discrete_height), dtype=np.float32)
         for i in range(3):
             self.obs[i] = self.obs[i + 1]
 
@@ -140,7 +151,7 @@ class ENV(gym.Env):
                     reward = reward * 0.5
 
             # punishment for indolence(pressing both keys at the same time), to avoid the agent keep pressing one of the keys
-            if action[0] and action[1]:
+            if action[0] and action[1] and self.auto_pilot:
                 reward = reward * 0.1
 
             ### DO NOT USE THIS ###
@@ -166,20 +177,23 @@ class ENV(gym.Env):
 
         if done:
             # log play_container to file
+            log_path = 'log_hit/' if self.auto_pilot else 'log_movement/' if self.relax else 'log_unknown'
             if self.traing_mode == 0:
-                with open('play_training.txt', 'a') as f:
+                with open(log_path + 'play_training.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
             elif self.traing_mode == 1:
-                with open('play_evaluation.txt', 'a') as f:
+                with open(log_path + 'play_evaluation.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
+            elif self.traing_mode == -1:
+                pass
             else:
-                raise ValueError("traing_mode must be either 0 or 1")
+                raise ValueError("traing_mode must be 0, 1 or -1")
             
             self.play_counter += 1
 
         self.last_play_container = last_play_container
             
-        return observation[-1], reward, done, {}
+        return observation, reward, done, {}
         
     def render(self, img, mode='human'):
 
@@ -200,8 +214,10 @@ class ENV(gym.Env):
             self.traing_mode = 0
         elif mode == 1:
             self.traing_mode = 1
+        elif mode == -1:
+            self.traing_mode = -1
         else:
-            raise ValueError("traing_mode must be either 0 or 1")
+            raise ValueError("traing_mode must be 0, 1 or -1")
     
     def _action_thread(self, real_x, real_y, curve):
         self.human_clicker.move((real_x, real_y), 0.05, humanCurve=curve)
@@ -209,67 +225,60 @@ class ENV(gym.Env):
 
     def _perform_action(self, action):
         # if action contain NaN, do nothing
-        if np.isnan(action).any():
-            return None
-        
-        # width, height = self.hwnd_width, self.hwnd_height
-        if self.action_space_type == "discrete":
-            if action == 0:
-                pyautogui.keyUp('q')
-                pyautogui.keyUp('w')
-            elif action == 1:
-                pyautogui.keyDown('q')
-                pyautogui.keyUp('w')
-            elif action == 2:
-                pyautogui.keyUp('q')
-                pyautogui.keyDown('w')
-            elif action == 3:
-                pyautogui.keyDown('q')
-                pyautogui.keyDown('w')
-            else:
-                raise ValueError(f'Action {action} is not valid')
-        elif self.action_space_type == "multi_discrete":
-            click1 = action[0]
-            click2 = action[1]
-            if click1 == 0:
-                pyautogui.keyUp('q')
-            else:
-                pyautogui.keyDown('q')
+        # if np.isnan(action).any():
+        #     return None
+        if self.auto_pilot:
+            if self.action_space_type == "discrete":
+                if action == 0:
+                    pyautogui.keyUp('q')
+                    pyautogui.keyUp('w')
+                elif action == 1:
+                    pyautogui.keyDown('q')
+                    pyautogui.keyUp('w')
+                elif action == 2:
+                    pyautogui.keyUp('q')
+                    pyautogui.keyDown('w')
+                elif action == 3:
+                    pyautogui.keyDown('q')
+                    pyautogui.keyDown('w')
+                else:
+                    raise ValueError(f'Action {action} is not valid')
+            elif self.action_space_type == "multi_discrete":
+                click1 = action[0]
+                click2 = action[1]
+                if click1 == 0:
+                    pyautogui.keyUp('q')
+                else:
+                    pyautogui.keyDown('q')
 
-            if click2 == 0:
-                pyautogui.keyUp('w')
-            else:
-                pyautogui.keyDown('w')
-        # elif self.action_space_type == "box":
-        #     x = action[0] * self.discrete_width
-        #     y = action[1] * self.discrete_height
-        #     click1 = 0 if action[2] < 0.5 else 1
-        #     click2 = 0 if action[3] < 0.5 else 1
-        #     if click1 == 0:
-        #         pyautogui.keyUp('q')
-        #     else:
-        #         pyautogui.keyDown('q')
-        #     if click2 == 0:
-        #         pyautogui.keyUp('w')
-        #     else:
-        #         pyautogui.keyDown('w')
-                
-        # top, left = self.hwnd_top, self.hwnd_left
-        # discrete_width_factor = (width - 50) / self.discrete_width
-        # discrete_height_factor = (height - 50 - 25) / self.discrete_height
-        # real_x = int(left + x * discrete_width_factor)
-        # real_y = int(top + y * discrete_height_factor)
-# 
-        # pyautogui.moveTo(real_x, real_y)
+                if click2 == 0:
+                    pyautogui.keyUp('w')
+                else:
+                    pyautogui.keyDown('w')
+            elif self.action_space_type == "multi_binary":
+                click1 = action[0]
+                click2 = action[1]
+                if not click1:
+                    pyautogui.keyUp('q')
+                else:
+                    pyautogui.keyDown('q')
 
-        # curve = HumanCurve(pyautogui.position(), (real_x, real_y), targetPoints=10)
+                if not click2:
+                    pyautogui.keyUp('w')
+                else:
+                    pyautogui.keyDown('w')
+        elif self.relax:
+            if self.action_space_type == "multi_discrete":
+                discrete_x = action[0]
+                discrete_y = action[1]
+                width, height = self.hwnd_width, self.hwnd_height
+                top, left = self.hwnd_top, self.hwnd_left
+                discrete_width_factor = (width - 50) / self.discrete_width
+                discrete_height_factor = (height - 50 - 25) / self.discrete_height
+                real_x = int(left + discrete_x * discrete_width_factor)
+                real_y = int(top + discrete_y * discrete_height_factor)
 
-        # self.action_thread = threading.Thread(target=self._action_thread, args=(real_x, real_y, curve))
-        # self.action_thread.start()
-
-        # hc = HumanClicker()
-        # curve = HumanCurve(pyautogui.position(), (real_x, real_y), targetPoints=10)
-        # hc.move((real_x, real_y), 0.01, humanCurve=curve)
+                pyautogui.moveTo(real_x, real_y)
 
 if __name__ == "__main__":
     pass
