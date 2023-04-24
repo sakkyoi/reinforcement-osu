@@ -19,7 +19,12 @@ import threading
 import pyclick
 
 from ossapi.enums import GameMode
-from OSUAPI import OSUAPI
+
+# if current path is in util, then import from parent directory
+if __name__ == "__main__":
+    from OSUAPI import OSUAPI
+else:
+    from util.OSUAPI import OSUAPI
 
 class OSUInjector:
     def __init__(self, osu_path: str, no_fail: bool = False, auto_pilot: bool = False, relax: bool = False, game_mode: GameMode = GameMode.OSU):
