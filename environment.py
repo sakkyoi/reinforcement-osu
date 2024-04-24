@@ -91,7 +91,7 @@ class ENV(gym.Env):
         datetime.now()
         if self.time_last_action + timedelta(seconds=1/self.frame_limit) > datetime.now():
             while self.time_last_action + timedelta(seconds=0.1) > datetime.now():
-                pass
+                sleep(0.1)
         self.time_last_action = datetime.now()
 
         if not self.started:
@@ -108,13 +108,9 @@ class ENV(gym.Env):
 
             self.injector.recaculate_offsets() # recaculate offsets
 
-            # self.last_play_container = self.injector.get_play_container()
-
         last_play_container = self.injector.get_play_container()
         
         self._perform_action(action)
-        # observation = self.injector._screen_shot()
-        # self.obs = np.ndarray((4, self.discrete_width, self.discrete_height), dtype=np.float32)
         for i in range(3):
             self.obs[i] = self.obs[i + 1]
 
@@ -139,27 +135,16 @@ class ENV(gym.Env):
             reward += (play_container['hit50'] - last_play_container['hit50']) * -3
             reward += (play_container['hitMiss'] - last_play_container['hitMiss']) * -5
 
-            # additional reward for combo
-            # reward += (play_container['hitGeki'] - last_play_container['hitGeki']) * 1
-            # reward += (play_container['hitKatsu'] - last_play_container['hitKatsu']) * 1
-
             # punishment for doing nothing
             if (action == self.last_action).all():
                 if reward < 0:
                     reward = -5
-                elif reward == 0:
-                    pass
-                else:
+                elif reward != 0:
                     reward = reward * 0.5
 
             # punishment for indolence(pressing both keys at the same time), to avoid the agent keep pressing one of the keys
             if action[0] and action[1] and self.auto_pilot:
                 reward = reward * 0.1
-
-            ### DO NOT USE THIS ###
-            # punishment for useless key press(experimental. may cause the delayed reward. i don't know if this is a good idea)
-            # if (action[0] or action[1]) and reward == 0:
-            #     reward = -1
 
             self.last_action = action
 
@@ -179,16 +164,19 @@ class ENV(gym.Env):
 
         if done:
             # log play_container to file
-            log_path = 'log_hit/' if self.auto_pilot else 'log_movement/' if self.relax else 'log_unknown'
+            if self.auto_pilot:
+                log_path = 'log_hit/'
+            elif self.relax:
+                log_path = 'log_movement'
+            else:
+                log_path = 'log_unknown'
             if self.traing_mode == 0:
                 with open(log_path + 'play_training.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
             elif self.traing_mode == 1:
                 with open(log_path + 'play_evaluation.txt', 'a') as f:
                     f.write(str(self.play_counter) + "," + str(self.last_play_container) + "\n")
-            elif self.traing_mode == -1:
-                pass
-            else:
+            elif self.traing_mode != -1:
                 raise ValueError("traing_mode must be 0, 1 or -1")
             
             self.play_counter += 1
@@ -226,9 +214,6 @@ class ENV(gym.Env):
         return None
 
     def _perform_action(self, action):
-        # if action contain NaN, do nothing
-        # if np.isnan(action).any():
-        #     return None
         if self.auto_pilot:
             if self.action_space_type == "discrete":
                 if action == 0:
@@ -294,4 +279,4 @@ class ENV(gym.Env):
                 pyautogui.moveTo(real_x, real_y)
 
 if __name__ == "__main__":
-    pass
+    raise NotImplementedError("This file is not meant to be run")
