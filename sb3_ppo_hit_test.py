@@ -21,6 +21,6 @@ model = PPO.load("./ppo2_osu", env=env_dummyvec, verbose=2)
 
 obs = env.reset()
 while True:
-    action, _states = model.predict(obs, deterministic=True)
+    action, _states = model.predict(obs, deterministic=False)
     obs, rewards, dones, info = env.step(action)
     #env.render()

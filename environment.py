@@ -40,6 +40,8 @@ class ENV(gym.Env):
         elif self.relax:
             if self.action_space_type == 'multi_discrete':
                 self.action_space = spaces.MultiDiscrete([self.discrete_width + 1, self.discrete_height + 1])
+            elif self.action_space_type == 'box':
+                self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([1, 1]), dtype=np.float32)
             else:
                 raise ValueError("action_space must be 'multi_discrete'")
         
@@ -79,8 +81,6 @@ class ENV(gym.Env):
         """
         print('\nreset')
 
-        self.injector.recaculate_offsets() # recaculate offsets
-
         self.started = False
 
         observation = self.obs
@@ -105,6 +105,8 @@ class ENV(gym.Env):
                 self.injector._restart_map()
             elif not self.no_fail and self.last_play_container is not None and self.injector.get_play_container()['player_hp'] == 0:
                 self.injector._restart_map()
+
+            self.injector.recaculate_offsets() # recaculate offsets
 
             # self.last_play_container = self.injector.get_play_container()
 
@@ -271,6 +273,17 @@ class ENV(gym.Env):
             if self.action_space_type == "multi_discrete":
                 discrete_x = action[0]
                 discrete_y = action[1]
+                width, height = self.hwnd_width, self.hwnd_height
+                top, left = self.hwnd_top, self.hwnd_left
+                discrete_width_factor = (width - 50) / self.discrete_width
+                discrete_height_factor = (height - 50 - 25) / self.discrete_height
+                real_x = int(left + discrete_x * discrete_width_factor)
+                real_y = int(top + discrete_y * discrete_height_factor)
+
+                pyautogui.moveTo(real_x, real_y)
+            elif self.action_space_type == 'box':
+                discrete_x = action[0] * self.discrete_width
+                discrete_y = action[1] * self.discrete_height
                 width, height = self.hwnd_width, self.hwnd_height
                 top, left = self.hwnd_top, self.hwnd_left
                 discrete_width_factor = (width - 50) / self.discrete_width

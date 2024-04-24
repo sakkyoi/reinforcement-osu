@@ -106,8 +106,15 @@ class OSUInjector:
     
     def recaculate_offsets(self):
         """Recalculates the offsets of the osu! client."""
-        self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
-        self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+        for i in range(10):
+            try:
+                self.address_base = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.base_sign))
+                self.address_play_container = pattern.pattern_scan_all(self.pm.process_handle, self.pattern_converter(self.playcontainer_sign))
+                return None
+            except:
+                print(f'Failed to recalculate offsets. Retrying... ({i+1}/10)')
+        
+        raise Exception('Failed to recalculate offsets.')
     
     def read_int(self, address) -> int:
         return self.pm.read_int(address)

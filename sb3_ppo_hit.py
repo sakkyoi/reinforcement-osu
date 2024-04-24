@@ -46,17 +46,21 @@ policy_kwargs = dict(
 while True:
     # continue training
     try:
-        model = PPO.load("ppo2_osu", env=env_dummyvec, verbose=2)
+        model = PPO.load("ppo_osu_hit", env=env_dummyvec, verbose=2)
         print('model loaded')
+        model.set_parameters("ppo_osu_hit")
+        print('parameters set')
+        print('================================')
     except:
-        model = PPO('CnnLstmPolicy', env_dummyvec, verbose=2, learning_rate=2.5e-4, gamma=0.99, batch_size=256, n_steps=1280, n_epochs=4, policy_kwargs=policy_kwargs, device='cuda')
+        model = PPO('CnnLstmPolicy', env_dummyvec, verbose=2, learning_rate=1e-2, gamma=0.99, batch_size=256, n_steps=1280, n_epochs=4, policy_kwargs=policy_kwargs, device='cuda') # 2.5e-4
         print('model not found, create it')
+        print('================================')
     
     model.learn(total_timesteps=10_000)
 
     env._set_training_mode(1) # set to evaluation mode
 
-    mean_reward, std_reward = evaluate_policy(model, env_dummyvec, n_eval_episodes=3, deterministic=False)
+    mean_reward, std_reward = evaluate_policy(model, env_dummyvec, n_eval_episodes=3, deterministic=True)
     # print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
     print(f"mean_reward:{mean_reward:.2f}")
     print(f"std_reward:{std_reward:.2f}")
@@ -66,7 +70,7 @@ while True:
 
     env._set_training_mode(0) # set to training mode
 
-    model.save("ppo2_osu")
+    model.save("ppo_osu_hit")
     print('model saved')
     del model
     if IS_EXIT:
